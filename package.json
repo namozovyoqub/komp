@@ -1,0 +1,17 @@
+{
+  "name": "surxondaryo-live-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Surxondaryo social-economic dashboard connected to Google Sheets via Apps Script",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "express": "^5.1.0"
+  }
+}
