@@ -4,7 +4,7 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzSxU-qRLqgpFiDhgl7LnC0dsaloH-O6MjnAEq0HwlJ0lEbsAXSmq8iqV1mpqonrA1H/exec';
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || '';
 const CACHE_TTL_MS = 60 * 1000;
 const REQUEST_TIMEOUT_MS = 120 * 1000;
 
@@ -24,6 +24,7 @@ function normalizePayload(payload) {
 }
 
 async function fetchGoogleData() {
+  if (!APPS_SCRIPT_URL) throw new Error('APPS_SCRIPT_URL sozlanmagan.');
   const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes('?') ? '&' : '?') + 'action=families';
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -85,4 +86,8 @@ app.get('/api/families', async (_req, res) => {
 
 app.use((_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`Dashboard server listening on ${PORT}`));
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Dashboard server listening on ${PORT}`));
+}
+
+module.exports = app;
