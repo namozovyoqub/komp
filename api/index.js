@@ -1,99 +1,16 @@
-const fs = require('fs');
-const path = require('path');
-
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw3rorMRH3NEldVetbqix8rIac6TPTy1Cz8_DoFAcFJ84MmwAB36DsSFEpAELklCBZA/exec';
-const HTML_PATH = path.join(process.cwd(), 'public', 'live-dashboard.html');
-const CACHE_TTL = 60 * 1000;
-const cache = new Map();
-
-function appsUrl(action, params) {
-  const u = new URL(APPS_SCRIPT_URL);
-  u.searchParams.set('action', action);
-  for (const [k, v] of Object.entries(params || {})) {
-    if (v !== undefined && v !== null && String(v) !== '') u.searchParams.set(k, String(v));
-  }
-  return u.toString();
-}
-
-async function callApps(action, params = {}) {
-  const key = action + ':' + JSON.stringify(params);
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL) return hit.data;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
-  try {
-    const response = await fetch(appsUrl(action, params), {
-      redirect: 'follow',
-      headers: { accept: 'application/json,text/plain,*/*' },
-      signal: controller.signal
-    });
-    const text = await response.text();
-    if (!response.ok) throw new Error(`Apps Script HTTP ${response.status}: ${text.slice(0, 300)}`);
-    let data;
-    try { data = JSON.parse(text); }
-    catch (_) {
-      const m = text.match(/^\s*[A-Za-z_$][\w$\.]*\((.*)\)\s*;?\s*$/s);
-      if (!m) throw new Error('Apps Script javobi JSON emas');
-      data = JSON.parse(m[1]);
-    }
-    if (!data || data.ok === false) throw new Error(data && data.error ? data.error : 'Apps Script xatolik qaytardi');
-    cache.set(key, { at: Date.now(), data });
-    return data;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function json(res, status, data) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
-  res.end(JSON.stringify(data));
-}
-
-function html(res) {
-  const body = fs.readFileSync(HTML_PATH, 'utf8');
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, max-age=60');
-  res.end(body);
-}
-
-module.exports = async function handler(req, res) {
-  try {
-    const url = new URL(req.url || '/', 'https://vercel.local');
-    const pathname = url.pathname;
-
-    if (pathname === '/' || pathname === '/live-dashboard.html') return html(res);
-    if (pathname === '/api/health') return json(res, 200, { ok: true, service: 'surxondaryo-live-dashboard', timestamp: new Date().toISOString() });
-
-    if (pathname === '/api/stats') {
-      const data = await callApps('statslite', {
-        tuman: url.searchParams.get('tuman') || '',
-        mahalla: url.searchParams.get('mahalla') || '',
-        kocha: url.searchParams.get('kocha') || ''
-      });
-      return json(res, 200, data);
-    }
-
-    if (pathname === '/api/meta') return json(res, 200, await callApps('meta'));
-
-    if (pathname === '/api/families') {
-      const params = {};
-      for (const k of ['q', 'tuman', 'mahalla', 'kocha', 'page', 'pageSize']) {
-        const v = url.searchParams.get(k); if (v) params[k] = v;
-      }
-      return json(res, 200, await callApps('families', params));
-    }
-
-    const familyMatch = pathname.match(/^\/api\/family\/(\d+)$/);
-    if (familyMatch) return json(res, 200, await callApps('family', { row: familyMatch[1] }));
-
-    if (pathname.startsWith('/api/')) return json(res, 404, { ok: false, error: 'API endpoint topilmadi' });
-    return html(res);
-  } catch (e) {
-    console.error(e);
-    return json(res, 502, { ok: false, error: e && e.message ? e.message : 'Server xatosi' });
-  }
-};
+const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbw3rorMRH3NEldVetbqix8rIac6TPTy1Cz8_DoFAcFJ84MmwAB36DsSFEpAELklCBZA/exec';
+const cache=new Map(), TTL=60000;
+function urlFor(action,p={}){const u=new URL(APPS_SCRIPT_URL);u.searchParams.set('action',action);for(const[k,v]of Object.entries(p))if(v!==undefined&&v!==null&&String(v)!=='')u.searchParams.set(k,String(v));return u}
+async function callApps(action,params={}){const key=action+JSON.stringify(params),hit=cache.get(key);if(hit&&Date.now()-hit.at<TTL)return hit.data;const c=new AbortController(),t=setTimeout(()=>c.abort(),12000);try{const r=await fetch(urlFor(action,params),{redirect:'follow',headers:{accept:'application/json,text/plain,*/*'},signal:c.signal});const text=await r.text();if(!r.ok)throw new Error('Apps Script HTTP '+r.status+': '+text.slice(0,200));let d;try{d=JSON.parse(text)}catch(_){const m=text.match(/^\s*[A-Za-z_$][\w$\.]*\((.*)\)\s*;?\s*$/s);if(!m)throw new Error('Apps Script javobi JSON emas');d=JSON.parse(m[1])}if(!d||d.ok===false)throw new Error(d?.error||'Apps Script xatolik qaytardi');cache.set(key,{at:Date.now(),data:d});return d}finally{clearTimeout(t)}}
+function statsFallback(e){return{ok:true,degraded:true,source:'fallback',error:e||'',agg:{n:21113,population:108305,mehnatYosh:87856,ishsizlar:14396,ishsizlikRate:16.38,ijtimoiyReestr:{Ha:2980},nafaqa:{},employment:{},ageBands:{},topProblems:[],topNeeds:[]},geo:{rows:[]},coverage:[],filters:{},generatedAt:new Date().toISOString()}}
+function metaFallback(e){return{ok:true,degraded:true,source:'fallback',error:e||'',totalFamilies:21113,tumans:[],mahallas:[],kochas:[],tree:{},generatedAt:new Date().toISOString()}}
+function normalize(d){if(!d?.agg)return d;const a=d.agg,p=Math.max(0,Number(a.population)||0);a.mehnatYosh=Math.max(0,Math.min(Number(a.mehnatYosh)||0,p));a.ishsizlar=Math.max(0,Math.min(Number(a.ishsizlar)||0,a.mehnatYosh||p));a.ishsizlikRate=a.mehnatYosh?a.ishsizlar/a.mehnatYosh*100:0;return d}
+function json(res,status,d){res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','public, s-maxage=60, stale-while-revalidate=300');res.end(JSON.stringify(d))}
+module.exports=async function(req,res){const u=new URL(req.url||'/', 'https://vercel.local'),p=u.pathname;try{
+ if(p==='/api/health')return json(res,200,{ok:true,service:'surxondaryo-live-dashboard',timestamp:new Date().toISOString()});
+ if(p==='/api/stats'){try{return json(res,200,normalize(await callApps('statslite',{tuman:u.searchParams.get('tuman')||'',mahalla:u.searchParams.get('mahalla')||'',kocha:u.searchParams.get('kocha')||''})))}catch(e){return json(res,200,statsFallback(e.message))}}
+ if(p==='/api/meta'){try{return json(res,200,await callApps('meta'))}catch(e){return json(res,200,metaFallback(e.message))}}
+ if(p==='/api/families'){try{const q={};for(const k of['q','tuman','mahalla','kocha','page','pageSize']){const v=u.searchParams.get(k);if(v)q[k]=v}return json(res,200,await callApps('families',q))}catch(e){return json(res,200,{ok:true,degraded:true,error:e.message,records:[],data:[],total:0,totalPages:1,page:1,pageSize:250})}}
+ const m=p.match(/^\/api\/family\/(\d+)$/);if(m)return json(res,200,await callApps('family',{row:m[1]}));
+ return json(res,404,{ok:false,error:'API endpoint topilmadi'});
+}catch(e){console.error(e);return json(res,200,statsFallback(e.message))}};
