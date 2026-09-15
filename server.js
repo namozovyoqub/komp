@@ -9,6 +9,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw3rorMRH3NEldV
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 55000;
 const PAGE_SIZE = 250;
+const PAGE_BATCH = 8;
 
 app.disable('x-powered-by');
 app.use(compression({ threshold: 512 }));
@@ -63,7 +64,6 @@ function dashboardHtml(){return fs.readFileSync(path.join(__dirname,'public','li
 app.get('/',(_req,res)=>res.type('html').send(dashboardHtml()));
 app.get('/live-dashboard.html',(_req,res)=>res.type('html').send(dashboardHtml()));
 app.get('/api/health',(_req,res)=>res.json({ok:true,service:'surxondaryo-live-dashboard',appsScriptConfigured:true,cacheEntries:cache.size,timestamp:new Date().toISOString()}));
-
 app.get('/api/stats',async(req,res)=>{try{const data=normalizeStats(await fetchAppsScript('stats',{tuman:req.query.tuman,mahalla:req.query.mahalla,kocha:req.query.kocha}));res.set('Cache-Control','no-store').json(data)}catch(e){console.error('stats:',e.message);res.status(502).set('Cache-Control','no-store').json(emptyStats(e.message))}});
 app.get('/api/meta',async(_req,res)=>{try{res.set('Cache-Control','public,max-age=300').json(await fetchAppsScript('meta'))}catch(e){console.error('meta:',e.message);res.status(502).set('Cache-Control','no-store').json(emptyMeta(e.message))}});
 
@@ -71,10 +71,12 @@ async function fetchAllFamilies(params={}) {
   const base={...params,pageSize:PAGE_SIZE};
   const first=await fetchAppsScript('families',{...base,page:1});
   let records=Array.isArray(first.records)?first.records:[];
-  const totalPages=Math.max(1,Number(first.totalPages)||Math.ceil((Number(first.total)||records.length)/PAGE_SIZE));
-  if(totalPages>1){
+  const total=Number(first.total)||records.length;
+  const totalPages=Math.max(1,Number(first.totalPages)||Math.ceil(total/PAGE_SIZE));
+  for(let start=2;start<=totalPages;start+=PAGE_BATCH){
+    const end=Math.min(totalPages,start+PAGE_BATCH-1);
     const jobs=[];
-    for(let page=2;page<=totalPages;page++) jobs.push(fetchAppsScript('families',{...base,page}));
+    for(let page=start;page<=end;page++) jobs.push(fetchAppsScript('families',{...base,page}));
     const pages=await Promise.all(jobs);
     for(const x of pages) if(Array.isArray(x.records)) records.push(...x.records);
   }
@@ -86,7 +88,6 @@ app.get('/api/families',async(req,res)=>{try{
   const data=await fetchAllFamilies(params);
   res.set('Cache-Control','no-store').json(data);
 }catch(e){console.error('families:',e.message);res.status(502).json({ok:false,degraded:true,error:e.message,page:1,pageSize:0,totalPages:1,total:0,records:[],data:[]})}});
-
 app.get('/api/family/:row',async(req,res)=>{try{const row=Number(req.params.row);if(!Number.isInteger(row)||row<2)return res.status(400).json({ok:false,error:'Noto‘g‘ri Sheet qatori.'});res.set('Cache-Control','no-store').json(await fetchAppsScript('family',{row}))}catch(e){res.status(502).json({ok:false,error:e.message})}});
 app.use((_req,res)=>res.type('html').send(dashboardHtml()));
 if(require.main===module)app.listen(PORT,()=>console.log('Dashboard server listening on '+PORT));
