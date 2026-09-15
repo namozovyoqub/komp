@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 // Vercel env is preferred; fallback keeps the dashboard working if APPS_SCRIPT_URL
 // was not added to the Vercel project settings yet.
-const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzSxU-qRLqgpFiDhgl7LnC0dsaloH-O6MjnAEq0HwlJ0lEbsAXSmq8iqV1mpqonrA1H/exec';
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbw3rorMRH3NEldVetbqix8rIac6TPTy1Cz8_DoFAcFJ84MmwAB36DsSFEpAELklCBZA/exec';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 30000;
 
