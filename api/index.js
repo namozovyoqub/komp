@@ -8,7 +8,7 @@ function normalize(d){if(!d?.agg)return d;const a=d.agg,p=Math.max(0,Number(a.po
 function json(res,status,d){res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','public, s-maxage=60, stale-while-revalidate=300');res.end(JSON.stringify(d))}
 module.exports=async function(req,res){const u=new URL(req.url||'/', 'https://vercel.local'),p=u.pathname;try{
  if(p==='/api/health')return json(res,200,{ok:true,service:'surxondaryo-live-dashboard',timestamp:new Date().toISOString()});
- if(p==='/api/stats'){try{return json(res,200,normalize(await callApps('statslite',{tuman:u.searchParams.get('tuman')||'',mahalla:u.searchParams.get('mahalla')||'',kocha:u.searchParams.get('kocha')||''})))}catch(e){return json(res,200,statsFallback(e.message))}}
+ if(p==='/api/stats'){try{return json(res,200,normalize(await callApps('stats',{tuman:u.searchParams.get('tuman')||'',mahalla:u.searchParams.get('mahalla')||'',kocha:u.searchParams.get('kocha')||''})))}catch(e){return json(res,200,statsFallback(e.message))}}
  if(p==='/api/meta'){try{return json(res,200,await callApps('meta'))}catch(e){return json(res,200,metaFallback(e.message))}}
  if(p==='/api/families'){try{const q={};for(const k of['q','tuman','mahalla','kocha','page','pageSize']){const v=u.searchParams.get(k);if(v)q[k]=v}return json(res,200,await callApps('families',q))}catch(e){return json(res,200,{ok:true,degraded:true,error:e.message,records:[],data:[],total:0,totalPages:1,page:1,pageSize:250})}}
  const m=p.match(/^\/api\/family\/(\d+)$/);if(m)return json(res,200,await callApps('family',{row:m[1]}));
