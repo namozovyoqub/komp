@@ -10,6 +10,9 @@ const REQUEST_TIMEOUT_MS = 15000;
 
 app.disable('x-powered-by');
 app.use(compression({ threshold: 512 }));
+
+// Production dashboard: use the new compact live frontend at the site root.
+app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'live-dashboard.html')));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 const cache = new Map();
@@ -64,70 +67,42 @@ async function fetchAppsScript(action, params = {}) {
 }
 
 app.get('/api/health', async (_req, res) => {
-  res.json({
-    ok: true,
-    service: 'surxondaryo-live-dashboard',
-    appsScriptConfigured: Boolean(APPS_SCRIPT_URL),
-    cacheEntries: cache.size,
-    timestamp: new Date().toISOString()
-  });
+  res.json({ ok: true, service: 'surxondaryo-live-dashboard', appsScriptConfigured: Boolean(APPS_SCRIPT_URL), cacheEntries: cache.size, timestamp: new Date().toISOString() });
 });
 
-// Small aggregate response for the dashboard header/charts.
 app.get('/api/stats', async (req, res) => {
   try {
-    const data = await fetchAppsScript('stats', {
-      tuman: req.query.tuman,
-      mahalla: req.query.mahalla,
-      kocha: req.query.kocha
-    });
+    const data = await fetchAppsScript('stats', { tuman: req.query.tuman, mahalla: req.query.mahalla, kocha: req.query.kocha });
     res.set('Cache-Control', 'no-store').json(data);
-  } catch (err) {
-    res.status(502).json({ ok: false, error: err.message });
-  }
+  } catch (err) { res.status(502).json({ ok: false, error: err.message }); }
 });
 
-// Location dictionaries are tiny compared with the family dataset.
 app.get('/api/meta', async (_req, res) => {
   try {
     const data = await fetchAppsScript('meta');
     res.set('Cache-Control', 'public, max-age=300').json(data);
-  } catch (err) {
-    res.status(502).json({ ok: false, error: err.message });
-  }
+  } catch (err) { res.status(502).json({ ok: false, error: err.message }); }
 });
 
-// Paginated family list. Never asks Apps Script for all 12k+ family objects.
 app.get('/api/families', async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page || 1));
     const pageSize = Math.min(250, Math.max(1, Number(req.query.pageSize || 100)));
-    const data = await fetchAppsScript('families', {
-      page, pageSize,
-      q: req.query.q,
-      tuman: req.query.tuman,
-      mahalla: req.query.mahalla,
-      kocha: req.query.kocha
-    });
+    const data = await fetchAppsScript('families', { page, pageSize, q: req.query.q, tuman: req.query.tuman, mahalla: req.query.mahalla, kocha: req.query.kocha });
     res.set('Cache-Control', 'no-store').json(data);
-  } catch (err) {
-    res.status(502).json({ ok: false, error: err.message });
-  }
+  } catch (err) { res.status(502).json({ ok: false, error: err.message }); }
 });
 
-// Full electronic passport: one Sheet row only, on demand.
 app.get('/api/family/:row', async (req, res) => {
   try {
     const row = Number(req.params.row);
     if (!Number.isInteger(row) || row < 2) return res.status(400).json({ ok: false, error: 'Noto‘g‘ri Sheet qatori.' });
     const data = await fetchAppsScript('family', { row });
     res.set('Cache-Control', 'no-store').json(data);
-  } catch (err) {
-    res.status(502).json({ ok: false, error: err.message });
-  }
+  } catch (err) { res.status(502).json({ ok: false, error: err.message }); }
 });
 
-app.use((_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.use((_req, res) => res.sendFile(path.join(__dirname, 'public', 'live-dashboard.html')));
 
 if (require.main === module) app.listen(PORT, () => console.log(`Dashboard server listening on ${PORT}`));
 module.exports = app;
