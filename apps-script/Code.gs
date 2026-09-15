@@ -8,36 +8,34 @@ function num_(v){const s=String(v==null?'':v).replace(/\s/g,'').replace(/,/g,'.'
 function clean_(v){return String(v==null?'':v).trim()}
 function yn_(v){const s=clean_(v).toLowerCase();if(!s)return 'Noma\'lum';if(['ha','ҳа','yes','да','bor','mavjud','true','1'].indexOf(s)>=0)return 'Ha';if(s.includes('qisman')||s.includes('қисман'))return 'Qisman';if(['yoq',"yo'q",'йўқ','нет','no'].indexOf(s)>=0)return "Yo'q";return 'Noma\'lum'}
 function yes_(v){return yn_(v)==='Ha'}
-function cache_(key){try{const x=CacheService.getScriptCache().get(key);return x?JSON.parse(x):null}catch(_){return null}}
+function cache_(key){try{const x=CacheService.getScriptCache().get(key);return x?JSON.parse(x):null}catch(_) {return null}}
 function put_(key,obj,sec){try{CacheService.getScriptCache().put(key,JSON.stringify(obj),sec)}catch(_) {}}
 function top_(o){return Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,12)}
-function actionStats_(e){
- const p=e.parameter||{};const ck='stats:v6:'+JSON.stringify({tuman:p.tuman||'',mahalla:p.mahalla||'',kocha:p.kocha||''});const old=cache_(ck);if(old)return old;
- const s=sh_(),n=Math.max(0,s.getLastRow()-1);if(!n)return {ok:true,agg:{n:0,population:0,mehnatYosh:0,ishsizlar:0,nogironShaxs:0,nogironBola:0,yolgizKeksa:0,ishsizlikRate:0,ijtimoiyReestr:{},nafaqa:{},incomeDist:{},employment:{},ageBands:{},ichimlikSuvi:{},tabiiyGaz:{},internet:{},topProblems:[],topNeeds:[]},geo:{rows:[]},coverage:[],generatedAt:new Date().toISOString()};
- const r1=s.getRange(2,2,n,44).getValues();
- const r2=s.getRange(2,61,n,1).getValues();
- const r3=s.getRange(2,136,n,8).getValues();
- const r4=s.getRange(2,175,n,9).getValues();
- const a={n:0,population:0,mehnatYosh:0,ishsizlar:0,nogironShaxs:0,nogironBola:0,yolgizKeksa:0},incD={},jobs={},age={},sr={},nf={},gas={},water={},internet={},geo={},cov={},problems={},needs={};
+function actionStatsLite_(e){
+ const p=e.parameter||{},ck='statslite:v1:'+JSON.stringify({tuman:p.tuman||'',mahalla:p.mahalla||'',kocha:p.kocha||''});
+ const old=cache_(ck);if(old)return old;
+ const s=sh_(),n=Math.max(0,s.getLastRow()-1);
+ if(!n)return {ok:true,building:false,agg:{n:0,population:0,mehnatYosh:0,ishsizlar:0,nogironShaxs:0,nogironBola:0,yolgizKeksa:0,ishsizlikRate:0,ijtimoiyReestr:{},nafaqa:{},incomeDist:{},employment:{},ageBands:{},ichimlikSuvi:{},tabiiyGaz:{},internet:{},topProblems:[],topNeeds:[]},geo:{rows:[]},coverage:[],generatedAt:new Date().toISOString()};
+ const loc=s.getRange(2,2,n,3).getValues(),pop=s.getRange(2,11,n,1).getValues(),nog=s.getRange(2,26,n,1).getValues(),social=s.getRange(2,31,n,2).getValues(),emp=s.getRange(2,35,n,10).getValues(),income=s.getRange(2,61,n,1).getValues(),util=s.getRange(2,136,n,8).getValues();
+ const a={n:0,population:0,mehnatYosh:0,ishsizlar:0,nogironShaxs:0,nogironBola:0,yolgizKeksa:0},incD={},jobs={},sr={},nf={},gas={},water={},internet={},geo={},cov={};
  for(let i=0;i<n;i++){
-  const t=clean_(r1[i][0]),m=clean_(r1[i][1]),k=clean_(r1[i][2]);if(!t||p.tuman&&t!==clean_(p.tuman)||p.mahalla&&m!==clean_(p.mahalla)||p.kocha&&k!==clean_(p.kocha))continue;
-  const population=num_(r1[i][9]);const mehnat=Math.max(0,Math.min(num_(r1[i][33]),population));const ishsiz=Math.max(0,Math.min(num_(r1[i][43]),mehnat||population));
-  a.n++;a.population+=population;a.mehnatYosh+=mehnat;a.ishsizlar+=ishsiz;a.nogironShaxs+=num_(r1[i][24]);
-  const g=geo[t]||(geo[t]={key:t,families:0,population:0,ishsizlar:0,mfy:{}});g.families++;g.population+=population;g.ishsizlar+=ishsiz;if(m)g.mfy[m]=1;
-  const c=cov[t]||(cov[t]={tuman:t,families:0,population:0,mfy:{}});c.families++;c.population+=population;if(m)c.mfy[m]=1;
-  const iv=num_(r2[i][0]),band=iv<=1000000?'1 mln gacha':iv<=3000000?'1–3 mln':iv<=5000000?'3–5 mln':iv<=10000000?'5–10 mln':'10 mln+';incD[band]=(incD[band]||0)+1;
-  [['Rasmiy',r1[i][36]],['Norasmiy',r1[i][37]],['Mavsumiy',r1[i][38]],['O‘zini o‘zi band',r1[i][39]],['Tadbirkorlik',r1[i][40]],['Xorijda',r1[i][41]],['Boshqa hududda',r1[i][42]],['Ishsiz',ishsiz]].forEach(x=>{const z=num_(x[1]);if(z)jobs[x[0]]=(jobs[x[0]]||0)+z});
-  [['0–3',r1[i][12]],['4–7',r1[i][13]],['8–17',r1[i][14]],['18–30',r1[i][15]],['31–59',r1[i][16]],['60+',r1[i][17]]].forEach(x=>{const z=num_(x[1]);if(z)age[x[0]]=(age[x[0]]||0)+z});
-  const q=yn_(r1[i][29]);sr[q]=(sr[q]||0)+1;const q2=yn_(r1[i][30]);nf[q2]=(nf[q2]||0)+1;
-  if(yes_(r3[i][0]))gas.Ha=(gas.Ha||0)+1;if(yes_(r3[i][3]))water.Ha=(water.Ha||0)+1;if(yes_(r3[i][7]))internet.Ha=(internet.Ha||0)+1;
-  for(let j=0;j<3;j++){let z=clean_(r4[i][j]);if(z)problems[z]=(problems[z]||0)+1}for(let j=3;j<6;j++){let z=clean_(r4[i][j]);if(z)needs[z]=(needs[z]||0)+1}
+  const t=clean_(loc[i][0]),m=clean_(loc[i][1]),k=clean_(loc[i][2]);if(!t||p.tuman&&t!==clean_(p.tuman)||p.mahalla&&m!==clean_(p.mahalla)||p.kocha&&k!==clean_(p.kocha))continue;
+  const population=num_(pop[i][0]),mehnat=Math.max(0,Math.min(num_(emp[i][0]),population)),ishsiz=Math.max(0,Math.min(num_(emp[i][9]),mehnat||population));
+  a.n++;a.population+=population;a.mehnatYosh+=mehnat;a.ishsizlar+=ishsiz;a.nogironShaxs+=num_(nog[i][0]);
+  const g=geo[t]||(geo[t]={key:t,families:0,population:0,ishsizlar:0});g.families++;g.population+=population;g.ishsizlar+=ishsiz;
+  const c=cov[t]||(cov[t]={tuman:t,families:0,population:0});c.families++;c.population+=population;
+  const iv=num_(income[i][0]),band=iv<=1000000?'1 mln gacha':iv<=3000000?'1–3 mln':iv<=5000000?'3–5 mln':iv<=10000000?'5–10 mln':'10 mln+';incD[band]=(incD[band]||0)+1;
+  [['Rasmiy',emp[i][2]],['Norasmiy',emp[i][3]],['Mavsumiy',emp[i][4]],['O‘zini o‘zi band',emp[i][5]],['Tadbirkorlik',emp[i][6]],['Xorijda',emp[i][7]],['Boshqa hududda',emp[i][8]],['Ishsiz',ishsiz]].forEach(x=>{const z=num_(x[1]);if(z)jobs[x[0]]=(jobs[x[0]]||0)+z});
+  const q=yn_(social[i][0]);sr[q]=(sr[q]||0)+1;const q2=yn_(social[i][1]);nf[q2]=(nf[q2]||0)+1;
+  if(yes_(util[i][0]))gas.Ha=(gas.Ha||0)+1;if(yes_(util[i][3]))water.Ha=(water.Ha||0)+1;if(yes_(util[i][7]))internet.Ha=(internet.Ha||0)+1;
  }
- const geoRows=Object.values(geo).map(x=>({key:x.key,families:x.families,population:x.population,ishsizlar:x.ishsizlar})).sort((x,y)=>y.families-x.families),covRows=Object.values(cov).map(x=>({tuman:x.tuman,families:x.families,population:x.population,mfyCount:Object.keys(x.mfy).length,avgPerMfy:Object.keys(x.mfy).length?x.families/Object.keys(x.mfy).length:0})).sort((x,y)=>y.families-x.families);
- const r={ok:true,agg:{...a,ishsizlikRate:a.mehnatYosh?a.ishsizlar/a.mehnatYosh*100:0,ijtimoiyReestr:sr,nafaqa:nf,incomeDist:incD,employment:jobs,ageBands:age,ichimlikSuvi:water,tabiiyGaz:gas,internet,topProblems:top_(problems),topNeeds:top_(needs),kreditBor:{},tadbirkorBor:{},yangiKreditEhtiyoji:{},subsidiyaEhtiyoji:{},kasbHunarIstagi:{},uyjoyYetarli:{},balans:{},mulkShakli:{},malumoti:{},oilaTarkibi:{},uyjoyHujjatlari:{},genderHead:{},repairCondition:{},appliances:{},livestock:{},childrenEdu:{},indicators:{},auditStats:{},criticalStats:{}},geo:{rows:geoRows},coverage:covRows,filters:{tuman:p.tuman||'',mahalla:p.mahalla||'',kocha:p.kocha||''},generatedAt:new Date().toISOString()};put_(ck,r,300);return r;
+ const r={ok:true,building:false,agg:{...a,ishsizlikRate:a.mehnatYosh?a.ishsizlar/a.mehnatYosh*100:0,ijtimoiyReestr:sr,nafaqa:nf,incomeDist:incD,employment:jobs,ageBands:{},ichimlikSuvi:water,tabiiyGaz:gas,internet,topProblems:[],topNeeds:[],kreditBor:{},tadbirkorBor:{},yangiKreditEhtiyoji:{},subsidiyaEhtiyoji:{},kasbHunarIstagi:{},uyjoyYetarli:{},balans:{},mulkShakli:{},malumoti:{},oilaTarkibi:{},uyjoyHujjatlari:{},genderHead:{},repairCondition:{},appliances:{},livestock:{},childrenEdu:{},indicators:{},auditStats:{},criticalStats:{}},geo:{rows:Object.values(geo)},coverage:Object.values(cov),filters:{tuman:p.tuman||'',mahalla:p.mahalla||'',kocha:p.kocha||''},generatedAt:new Date().toISOString()};
+ put_(ck,r,300);return r;
 }
+function actionStats_(e){const p=e.parameter||{};return actionStatsLite_(e)}
 function actionMeta_(){const old=cache_('meta:v4');if(old)return old;const s=sh_(),n=Math.max(0,s.getLastRow()-1);if(!n)return {ok:true,totalFamilies:0,tumans:[],mahallas:[],kochas:[],tree:{},generatedAt:new Date().toISOString()};const rows=s.getRange(2,2,n,3).getValues(),t={},m={},k={},tree={};rows.forEach(r=>{const a=clean_(r[0]),b=clean_(r[1]),c=clean_(r[2]);if(a){t[a]=1;tree[a]=tree[a]||{}}if(b){m[b]=1;if(a)tree[a][b]=tree[a][b]||{}}if(c){k[c]=1;if(a&&b)tree[a][b][c]=1}});const o={ok:true,totalFamilies:n,tumans:Object.keys(t).sort(),mahallas:Object.keys(m).sort(),kochas:Object.keys(k).sort(),tree,generatedAt:new Date().toISOString()};put_('meta:v4',o,300);return o}
 function actionFamilies_(e){const p=e.parameter||{},s=sh_(),n=Math.max(0,s.getLastRow()-1),page=Math.max(1,Number(p.page||1)),size=Math.min(MAX_PAGE_SIZE,Math.max(1,Number(p.pageSize||DEFAULT_PAGE_SIZE))),q=clean_(p.q).toLowerCase(),t=clean_(p.tuman),m=clean_(p.mahalla),k=clean_(p.kocha),rows=s.getRange(2,1,n,9).getValues(),out=[];rows.forEach((r,i)=>{if(!clean_(r[1]))return;if(t&&clean_(r[1])!==t||m&&clean_(r[2])!==m||k&&clean_(r[3])!==k)return;if(q&&[r[5],r[1],r[2],r[3],r[4]].join(' ').toLowerCase().indexOf(q)<0)return;out.push({_sheetRow:i+2,tuman:r[1]||'',mahalla:r[2]||'',kocha:r[3]||'',uy_raqami:r[4]||'',boshliq_fio:r[5]||'',tugilgan_sana:r[6]||'',jinsi:r[7]||'',telefon:r[8]||''})});const total=out.length,start=(page-1)*size;return {ok:true,page,pageSize:size,totalPages:Math.max(1,Math.ceil(total/size)),total,records:out.slice(start,start+size),generatedAt:new Date().toISOString()}}
 function rowToFamily_(row,sheetRow){const r={_sheetRow:sheetRow,_timestamp:row[0]||''};for(let i=0;i<FIELD_KEYS.length;i++)r[FIELD_KEYS[i]]=row[i+1]??'';r.mahalla_original=r.mahalla||'';r.kocha_original=r.kocha||'';r.masul_fio=row[183]??'';return r}
 function actionFamily_(e){const rowNo=Number((e.parameter||{}).row||0);if(rowNo<2)return {ok:false,error:'row parametri kerak'};const s=sh_();if(rowNo>s.getLastRow())return {ok:false,error:'Bunday Sheet qatori mavjud emas'};return {ok:true,record:rowToFamily_(s.getRange(rowNo,1,1,s.getLastColumn()).getValues()[0],rowNo),generatedAt:new Date().toISOString()}}
 function actionCheck_(){const s=sh_();return {ok:true,columns:s.getLastColumn(),rows:Math.max(0,s.getLastRow()-1),fieldKeys:FIELD_KEYS.length,expectedColumns:184,firstColumn:s.getRange(1,1).getDisplayValue(),lastColumn:s.getRange(1,s.getLastColumn()).getDisplayValue()}}
-function doGet(e){try{const a=String(e&&e.parameter&&e.parameter.action||'stats').toLowerCase();let r=a==='stats'?actionStats_(e):a==='meta'?actionMeta_():a==='families'?actionFamilies_(e):a==='family'?actionFamily_(e):a==='check'?actionCheck_():{ok:false,error:'Noma\'lum action: '+a};return out_(r,e)}catch(err){return out_({ok:false,error:String(err&&err.message||err)},e)}}
+function doGet(e){try{const a=String(e&&e.parameter&&e.parameter.action||'stats').toLowerCase();let r=a==='statslite'?actionStatsLite_(e):a==='stats'?actionStats_(e):a==='meta'?actionMeta_():a==='families'?actionFamilies_(e):a==='family'?actionFamily_(e):a==='check'?actionCheck_():{ok:false,error:'Noma\'lum action: '+a};return out_(r,e)}catch(err){return out_({ok:false,error:String(err&&err.message||err)},e)}}
