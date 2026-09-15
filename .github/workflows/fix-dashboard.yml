@@ -1,0 +1,77 @@
+name: Fix dashboard filters
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch live dashboard
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('public/live-dashboard.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('>Shahar haqida</button>','>Tuman haqida</button>')
+          s=s.replace("tumaninfo: ['Shahar haqida',","tumaninfo: ['Tuman haqida',")
+          profile='''    <div class="card district-profile-card" style="margin-bottom:16px;">\n      <div class="toolbar-row" style="align-items:flex-start;">\n        <div><h3 id="district-profile-title">Hudud haqida</h3><div class="card-sub" id="district-profile-sub">Google Sheetsdagi so‘rovnoma ma’lumotlari asosida qisqacha profil.</div></div>\n        <span class="count-pill" id="district-profile-badge">Barcha hududlar</span>\n      </div>\n      <div class="kpi-grid" id="district-profile-kpis" style="margin-top:14px;margin-bottom:0;"></div>\n    </div>\n\n'''
+          needle='''    <div class="card" style="margin-bottom:16px;">\n      <h3>So‘rovnoma sifati — tanqidiy tahlil</h3>'''
+          if 'id="district-profile-kpis"' not in s and needle in s:
+            s=s.replace(needle,profile+needle,1)
+          fn=r'''function renderDistrictProfile(pool, level){
+  const name = state.tuman ? state.tuman + ' tumani' : 'Surxondaryo viloyati';
+  const mahallas = uniqSorted(pool.map(r=>r.mahalla));
+  const kochas = uniqSorted(pool.map(r=>r.kocha));
+  const families = pool.length;
+  const population = pool.reduce((a,r)=>a+toNum(r.jami_aholi),0);
+  const labor = pool.reduce((a,r)=>a+toNum(r.mehnat_yoshidagilar),0);
+  const unemployed = pool.reduce((a,r)=>a+toNum(r.ishsizlar),0);
+  const registry = pool.reduce((a,r)=>{ const v=String(r.ijtimoiy_reestr||'').toLowerCase(); return a+((v.includes('ha')||v.includes('ҳа'))?1:0); },0);
+  const avg = families ? population/families : 0;
+  const title=document.getElementById('district-profile-title'), sub=document.getElementById('district-profile-sub'), badge=document.getElementById('district-profile-badge'), box=document.getElementById('district-profile-kpis');
+  if(!title||!box)return;
+  title.textContent=name;
+  sub.textContent=state.tuman?'Tanlangan tuman bo‘yicha Google Sheets so‘rovnoma ma’lumotlaridan shakllantirilgan qisqacha profil.':'Viloyatdagi mavjud so‘rovnoma ma’lumotlari asosida shakllantirilgan umumiy profil.';
+  badge.textContent=state.kocha||state.mahalla||state.tuman||'Barcha hududlar';
+  const cards=[['Xonadonlar',families.toLocaleString('ru-RU'),'so‘rovnomada qayd etilgan'],['Aholi',population.toLocaleString('ru-RU'),'doimiy yashovchi aholi'],['MFY',mahallas.length.toLocaleString('ru-RU'),'qayd etilgan mahallalar'],['Ko‘chalar',kochas.length.toLocaleString('ru-RU'),'qayd etilgan ko‘chalar'],['Mehnat yoshi',labor.toLocaleString('ru-RU'),'18–60 yoshdagilar'],['Ishsizlar',unemployed.toLocaleString('ru-RU'),labor?((unemployed/labor)*100).toFixed(1)+'% mehnat yoshiga nisbatan':'ma’lumot yo‘q'],['Ijtimoiy reestr',registry.toLocaleString('ru-RU'),'xonadonlar'],['O‘rtacha oila hajmi',avg.toFixed(1),'kishi / xonadon']];
+  box.innerHTML=cards.map(c=>`<div class="kpi" style="padding:12px 14px;"><div class="lbl">${Th(c[0])}</div><div class="num" style="font-size:23px!important;">${c[1]}</div><div class="sub">${Th(c[2])}</div></div>`).join('');
+}
+
+'''
+          if 'function renderDistrictProfile(' not in s:
+            s=s.replace('function renderAuditTab(){',fn+'function renderAuditTab(){',1)
+          marker='''  else { level='kocha'; pool = FAMILIES.filter(r=>r.tuman===state.tuman && r.mahalla===state.mahalla); }\n\n  const groups = {};'''
+          if marker in s and 'renderDistrictProfile(pool, level);' not in s:
+            s=s.replace(marker,marker.replace('\n\n  const groups', '\n\n  renderDistrictProfile(pool, level);\n\n  const groups'),1)
+          a=s.find('async function loadLiveFamilies(){')
+          b=s.find('async function bootstrapLive(){',a)
+          if a>=0 and b>a:
+            loader=r'''async function fetchFamilyPage(page, pageSize=1000){
+  const r=await fetch('/api/families?page='+page+'&pageSize='+pageSize+'&_='+Date.now(),{cache:'no-store'});
+  const text=await r.text(); if(!r.ok)throw new Error('API HTTP '+r.status);
+  let j; try{j=JSON.parse(text)}catch(e){throw new Error('API javobi JSON emas')}
+  if(j.ok===false)throw new Error(j.error||'Oilalar API xatolik qaytardi');
+  const rows=Array.isArray(j.rows)?j.rows:(Array.isArray(j.records)?j.records:(Array.isArray(j.data)?j.data:(Array.isArray(j)?j:[])));
+  return {rows,total:Number(j.total||0),pageSize:Number(j.pageSize||pageSize)};
+}
+async function loadLiveFamilies(){
+  const first=await fetchFamilyPage(1,1000); let rows=first.rows||[]; const total=first.total||rows.length; const ps=first.pageSize||1000; const pages=Math.max(1,Math.ceil(total/ps));
+  for(let p=2;p<=pages;p+=6){const batch=[];for(let q=p;q<Math.min(p+6,pages+1);q++)batch.push(fetchFamilyPage(q,ps));const parts=await Promise.all(batch);parts.forEach(x=>{rows=rows.concat(x.rows||[])});}
+  FAMILIES=rows.map((r,i)=>{const x=(r&&typeof r==='object')?r:{};x._idx=i;return x;});
+  if(!FAMILIES.length)throw new Error('Google Sheetsdan oilalar ma’lumoti topilmadi');
+}
+'''
+            s=s[:a]+loader+s[b:]
+          p.write_text(s,encoding='utf-8')
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/live-dashboard.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Fix dashboard filters and Angor district profile"
+          git push
